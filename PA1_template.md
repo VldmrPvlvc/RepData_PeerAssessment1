@@ -1,0 +1,192 @@
+# Reproducible Research: Peer Assessment 1
+This assigned written by Vladimir Pavlovic for the sole purpose of 
+the coursera course on Reproducable Research.
+Note that it is assumed that the activity data is already uncompressed,
+and that it is at the same folder as the running program.
+
+## Loading and preprocessing the data
+
+```r
+actData <- read.csv("activity.csv") 
+```
+
+## What is mean total number of steps taken per day?
+Process the input activity data to generate a histogram of the
+total number of steps taken each day.
+
+
+```r
+totalSteps <- aggregate(steps ~ date, data = actData, FUN=sum, na.rm = TRUE)
+hist(totalSteps$steps, main = "Average total steps made each day", xlab = "Day", 
+     col = "blue")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-2-1.png) 
+
+Mean value is:
+
+```r
+mean(totalSteps$steps)
+```
+
+```
+## [1] 10766.19
+```
+
+Median values is:
+
+```r
+median(totalSteps$steps)
+```
+
+```
+## [1] 10765
+```
+
+## What is the average daily activity pattern?
+Calculate the time series of the daily activity pattern, and later plot it.
+
+```r
+dact <- tapply(actData$steps, actData$interval, FUN=mean, na.rm = TRUE)
+plot(row.names(dact), dact, type = "l", xlab = "5-min interval", 
+    ylab = "Average across all the days", 
+    main = "Average number of steps taken", 
+    col = "blue")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-5-1.png) 
+
+Calculate the 5-minute interval accross all the days in the dataset, that contains the 
+maximum number of steps.
+naMaxIndices <- which(dact == max(dact))
+names(naMaxIndices)
+
+
+## Imputing missing values
+Extract the number of missing values:
+
+```r
+missingValuesBool <- is.na(actData)
+missingValues <- sum(missingValuesBool)
+missingValues
+```
+
+```
+## [1] 2304
+```
+
+Creating a new dataset with the NA value replaced by the median values.
+
+
+```r
+actDataReplaced <-actData
+medianData <-tapply(actData$steps, actData$interval, FUN=median, 
+                    na.rm=TRUE)
+for (i in which(is.na(actDataReplaced)))
+    {
+    actDataReplaced[i,1] <- medianData[((i-1)%%288)+1]
+    }
+```
+
+Histogram of the total number of steps taken each day.
+
+```r
+totalStepsReplaced <- aggregate(steps ~ date, data = actDataReplaced, FUN=sum, 
+                                na.rm = TRUE)
+hist(totalStepsReplaced$steps, main = "Average total steps made each day", xlab = "Day", 
+     col = "blue")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-8-1.png) 
+
+
+Mean value is:
+
+```r
+mean(totalStepsReplaced$steps)
+```
+
+```
+## [1] 9503.869
+```
+
+Median values is:
+
+```r
+median(totalStepsReplaced$steps)
+```
+
+```
+## [1] 10395
+```
+
+Check if the mean and median values after replacement changed
+
+```r
+if (mean(totalStepsReplaced$steps) != mean(totalSteps$steps)){
+    sprintf(" Imputing missing values changes mean. \n")
+}else{
+    sprintf(" The mean value after replacement does not differ.\n")
+}
+```
+
+```
+## [1] " Imputing missing values changes mean. \n"
+```
+
+```r
+if (median(totalStepsReplaced$steps) != median(totalSteps$steps)){
+    sprintf(" IMputing missing values changes median.\n")
+}else{
+    sprintf(" The median value after replacement does not differ.\n")
+}
+```
+
+```
+## [1] " IMputing missing values changes median.\n"
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+creating a new factor variable in the dataset with two levels: "weekday" and "weekend",
+indicating if a given date is a weekday or weekend day. Level 1 is for a wekday, 
+and level 2 is for a weekend.
+
+
+```r
+dates <- strptime(actData$date, "%Y-%m-%d")
+weekDays <- dates$wday
+levelDays<- weekDays
+levelDays[weekDays >= 1 & weekDays <= 5] <- 1
+levelDays[weekDays == 0 | weekDays == 6] <- 2
+dayInWeekFactor = factor(levelDays, levels=c(1,2), labels=c("Weekdays", "Weekends"))
+actData$levelOfDay<-dayInWeekFactor
+```
+
+Form two sets of data: one for weekdays and one for weekends.
+After that, find the mean values for intervals.
+
+
+```r
+actDataWeekdays <- actDataReplaced[actData$levelOfDay == "Weekdays",]
+actDataWeekdaysSplit <- split(actDataWeekdays$steps, actDataWeekdays$interval)
+weekdaysMean <- sapply(actDataWeekdaysSplit, FUN = mean)
+actDataWeekends <- actDataReplaced[actData$levelOfDay == "Weekends",]
+actDataWeekendsSplit <- split(actDataWeekends$steps, actDataWeekends$interval)
+weekendsMean <- sapply(actDataWeekendsSplit, FUN = mean)
+```
+
+Making a pannel plot:
+
+```r
+library(lattice)
+stepsByDay <- aggregate(steps ~ interval + actData$levelOfDay, data = actData, FUN=mean)
+names(stepsByDay) <- c("interval", "levelDays", "steps")
+xyplot(steps ~ interval | levelDays, stepsByDay, type = "l", layout = c(1, 2), 
+       xlab = "Interval", ylab = "Number of steps")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-14-1.png) 
+
+As seen on the figures above, there are the idifferences betweeen the weekends and weekdays.
+
+
